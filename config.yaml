@@ -1,0 +1,7 @@
+radiko_email:
+radiko_pw:
+gmail_sender:
+gmail_pw:
+gmail_receiver:
+storage_dir: ./storage
+rec_radiko_ts_sh: ../rec_radiko_ts/rec_radiko_ts.sh

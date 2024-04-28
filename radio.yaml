@@ -1,0 +1,177 @@
+- station: BAYFM78
+  radiko_title: 俺のメモ帳！ on tuesday
+  artist: ロバート秋山
+  album: 俺のメモ帳!
+  title: '%Y-%m-%d'
+  filename: 俺のメモ帳!_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: LFR
+  radiko_title: 三四郎のオールナイトニッポン0(ZERO)
+  artist: 三四郎
+  album: 三四郎のオールナイトニッポン0
+  title: '%Y-%m-%d'
+  filename: 三四郎のオールナイトニッポン0_%Y%m%d
+  storage_dir: '{artist}/%Y'
+
+- station: LFR
+  radiko_title: オードリーのオールナイトニッポン
+  artist: オードリー
+  album: オードリーのオールナイトニッポン
+  title: '%Y-%m-%d'
+  filename: オードリーのオールナイトニッポン_%Y%m%d
+  storage_dir: '{artist}/%Y'
+
+- station: LFR
+  radiko_title: あののオールナイトニッポン0(ZERO)
+  artist: あの
+  album: あののオールナイトニッポン0
+  title: '%Y-%m-%d'
+  filename: あののオールナイトニッポン0_%Y%m%d
+  storage_dir: '{artist}/%Y'
+
+- station: TBS
+  radiko_title: ハライチのターン！
+  artist: ハライチ
+  album: ハライチのターン！
+  title: '%Y-%m-%d'
+  filename: ハライチのターン！_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: FM-FUJI
+  radiko_title: タイムちゃん
+  artist: タイムマシーン3号
+  album: タイムちゃん
+  title: '%Y-%m-%d'
+  filename: タイムちゃん_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: TBS
+  radiko_title: かまいたちのヘイ！タクシー！
+  artist: かまいたち
+  album: かまいたちのヘイ！タクシー！
+  title: '%Y-%m-%d'
+  filename: かまいたちのヘイ！タクシー！_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: FMT
+  radiko_title: AuDee CONNECT
+  radiko_dayw: 火曜日
+  artist: 狩野英孝
+  album: AuDee CONNECT
+  title: '%Y-%m-%d'
+  filename: AuDee_CONNECT_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: TBS
+  radiko_title: アルコ＆ピース D.C.GARAGE
+  artist: アルコ＆ピース
+  album: アルコ＆ピース D.C.GARAGE
+  title: '%Y-%m-%d'
+  filename: アルコ＆ピース_D.C.GARAGE_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: TBS
+  radiko_title: 空気階段の踊り場
+  artist: 空気階段
+  album: 空気階段の踊り場
+  title: '%Y-%m-%d'
+  filename: 空気階段の踊り場_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: LFR
+  radiko_title: マヂカルラブリーのオールナイトニッポン0(ZERO)
+  artist: マヂカルラブリー
+  album: マヂカルラブリーのオールナイトニッポン0
+  title: '%Y-%m-%d'
+  filename: マヂカルラブリーのオールナイトニッポン0_%Y%m%d
+  storage_dir: '{artist}/%Y'
+
+- station: FMT
+  radiko_title: TOKYO SPEAKEASY
+  artist: '{pfm}'
+  album: TOKYO SPEAKEASY
+  title: '%Y-%m-%d'
+  filename: TOKYO_SPEAKEASY_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: FMT
+  radiko_title: 山下達郎の楽天カード サンデー・ソングブック
+  artist: 山下達郎
+  album: 山下達郎のサンデー・ソングブック
+  title: '%Y-%m-%d'
+  filename: 山下達郎のサンデー・ソングブック_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: FMT
+  radiko_title: ももいろクローバーZのSUZUKIハッピー・クローバー！TOP10
+  artist: ももいろクローバーZ
+  album: ももいろクローバーZのSUZUKIハッピー・クローバー！TOP10
+  title: '%Y-%m-%d'
+  filename: ももいろクローバーZのSUZUKIハッピー・クローバー！TOP10_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: FMT
+  radiko_title: NISSAN あ、安部礼司 ～BEYOND THE AVERAGE～
+  artist: 安部礼司
+  album: NISSAN あ、安部礼司 ～BEYOND THE AVERAGE～
+  title: '%Y-%m-%d'
+  filename: NISSAN_あ、安部礼司_～BEYOND_THE_AVERAGE～_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: FMT
+  radiko_title: リリー・フランキー「スナック ラジオ」
+  artist: リリー・フランキー
+  album: リリー・フランキー「スナック ラジオ」
+  title: '%Y-%m-%d'
+  filename: リリー・フランキー_スナック_ラジオ_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: TBS
+  radiko_title: ダイアンのＴＯＫＹＯ ＳＴＹＬＥ
+  artist: ダイアン
+  album: ダイアンのＴＯＫＹＯ ＳＴＹＬＥ
+  title: '%Y-%m-%d'
+  filename: ダイアンのＴＯＫＹＯ_ＳＴＹＬＥ_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: TBS
+  radiko_title: ねむチキ
+  artist: コロコロチキチキペッパーズ
+  album: ねむチキ
+  title: '%Y-%m-%d'
+  filename: ねむチキ_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: QRR
+  radiko_title: チョコレートプラネットの東京遊泳
+  artist: チョコレートプラネット
+  album: チョコレートプラネットの東京遊泳
+  title: '%Y-%m-%d'
+  filename: チョコレートプラネットの東京遊泳_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: RADIOBERRY
+  radiko_title: 有吉弘行のSUNDAY NIGHT DREAMER
+  artist: 有吉弘行
+  album: 有吉弘行のSUNDAY NIGHT DREAMER
+  title: '%Y-%m-%d'
+  filename: 有吉弘行のSUNDAY_NIGHT_DREAMER_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: SBC
+  radiko_title: もう中学生のおラジオ中
+  artist: もう中学生
+  album: もう中学生のおラジオ中
+  title: '%Y-%m-%d'
+  filename: もう中学生のおラジオ中_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: OBC
+  radiko_title: サクラバシ919
+  radiko_dayw: 火曜日
+  artist: 四千頭身 都築拓紀
+  album: 四千頭身 都築拓紀のサクラバシ919
+  title: '%Y-%m-%d'
+  filename: 四千頭身 都築拓紀のサクラバシ919_%Y%m%d
+  storage_dir: '{album}/%Y'

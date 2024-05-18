@@ -16,6 +16,8 @@ class Lastest:
                 self.last_record_at = yaml.safe_load(file)
         except FileNotFoundError:
             pass
+        if not self.last_record_at:
+            self.last_record_at = {}
 
     def save(self) -> None:
         with open(self.last_record_at_filename, 'w', encoding='utf-8') as file:

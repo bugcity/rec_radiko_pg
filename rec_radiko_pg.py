@@ -8,7 +8,7 @@ import logging.config
 from gmail import Email
 from config_loader import ConfigLoader
 from lastest import Lastest
-from radiko import Radiko
+from radiko import Radiko, Program
 
 
 @dataclass
@@ -44,6 +44,21 @@ def load_radio() -> list:
         return yaml.safe_load(file)
 
 
+def can_record(now: str, record_start: str, program: Program, lastest: Lastest) -> bool:
+
+    if type(program) is list:
+        pgs = program[0]
+        pge = program[-1]
+    else:
+        pgs = program
+        pge = program
+    if pgs.start_time <= lastest.get(pgs):
+        return False
+    if pgs.start_time > now or pge.end_time > record_start:
+        return False
+    return True
+
+
 def main():
     n = datetime.now()
     now = n.strftime('%Y%m%d%H%M%S')
@@ -60,14 +75,13 @@ def main():
         rec_radiko_ts_sh = script_dir / config.rec_radiko_ts_sh
     radiko = Radiko(rec_radiko_ts_sh, config.radiko_email, config.radiko_pw, script_dir, config.storage_dir)
 
-    for program in radiko.get_programs(load_radio()):
-        if program.start_time <= lastest.get(program):
+    for title, program in radiko.get_programs(load_radio()).items():
+        if not can_record(now, record_start, program, lastest):
             continue
-        if program.start_time > now or program.end_time > record_start:
-            continue
-        logger.debug(f'program: {program}')
-        filepath = radiko.record(program)
-        if filepath:
+
+        logger.debug(f'program: {title}')
+        program = radiko.record(program)
+        if program.filepath:
             lastest.set(program)
             msg = f'録音完了:{program.radiko_title}'
             body = ''

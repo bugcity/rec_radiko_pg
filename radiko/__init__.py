@@ -8,6 +8,7 @@ from pathlib import Path
 from mutagen.mp4 import MP4, MP4Cover
 import os
 import shutil
+from pydub import AudioSegment
 
 
 logger = getLogger(__name__)
@@ -27,6 +28,7 @@ class Program:
     artist: str = ''
     title: str = ''
     storage_dir: str = ''
+    filepath: Path = None
 
 
 class Radiko:
@@ -84,9 +86,9 @@ class Radiko:
             val = val.replace('{artist}', pg.artist)
         return val
 
-    def _filter_programs(self, programs: list, radio: list) -> list:
+    def _filter_programs(self, programs: list, radio: list) -> dict:
         weekdays = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']
-        ret = []
+        ret = {}
         for pg in programs:
             for cf in radio:
                 start_time = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
@@ -97,23 +99,32 @@ class Radiko:
                 else:
                     same_weekday = True
 
-                if pg.station == cf['station'] and pg.radiko_title == cf['radiko_title'] and same_weekday:
+                station = cf['station']
+                title = cf['radiko_title']
+                if pg.station == station and pg.radiko_title.startswith(title) and same_weekday:
                     pg.artist = self._replace_tag(pg, start_time, cf['artist'])
                     pg.album = self._replace_tag(pg, start_time, cf['album'])
                     pg.title = self._replace_tag(pg, start_time, cf['title'])
                     pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
                     pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
-                    ret.append(pg)
+                    title += ('_' + pg.start_time[:8])
+                    if title in ret:
+                        if type(ret[title]) is list:
+                            ret[title].append(pg)
+                        else:
+                            ret[title] = [ret[title], pg]
+                    else:
+                        ret[title] = pg
         return ret
 
-    def get_programs(self, radio: list) -> list:
+    def get_programs(self, radio: list) -> dict:
         stations = self._station_list(radio)
-        programs = []
+        programs = {}
         for station in stations:
             xml = self._get_programs_xml(station)
             progs = self._parse_programs_xml(xml)
             progs = self._filter_programs(progs, radio)
-            programs.extend(progs)
+            programs.update(progs)
         return programs
 
     def _get_artwork(self, program: Program) -> bytes:
@@ -170,17 +181,54 @@ class Radiko:
         shutil.move(src, dst)
         return dst
 
-    def record(self, program: Program) -> Path:
+    def _concatenate_m4a(self, files: list, output_path: Path) -> None:
+        combined = AudioSegment.from_file(files[0], format='m4a')
+
+        for file in files[1:]:
+            next_segment = AudioSegment.from_file(file, format='m4a')
+            combined += next_segment
+
+        combined.export(output_path, format='mp4', bitrate='46k')
+
+    def _record_one(self, program: Program) -> Path:
         logger.info(f'recording {program.radiko_title} ...')
 
-        artwork = self._get_artwork(program)
         filepath = self._rec_radiko_ts_sh(program)
         if not filepath:
             logger.error(f'failed to record {program.radiko_title}')
             return None
 
-        self._set_attr(program, filepath, artwork)
-        filepath = self._mv_file(program, filepath)
-
         logger.info(f'recorded {program.radiko_title} at {filepath}')
         return filepath
+
+    def record(self, program) -> Program:
+
+        if type(program) is list:
+            artwork = self._get_artwork(program[0])
+            concat_filepath = None
+            filepaths = []
+            for index, pg in enumerate(program):
+                filepath = self._record_one(pg)
+                if not concat_filepath:
+                    concat_filepath = filepath
+                new_filepath = filepath.with_suffix('.' + str(index) + '.m4a')
+                if new_filepath.exists():
+                    new_filepath.unlink()
+                filepath.rename(new_filepath)
+                filepaths.append(new_filepath)
+            logger.info(f'concatenating {len(filepaths)} files ...')
+            self._concatenate_m4a(filepaths, concat_filepath)
+            logger.info(f'concatenated {len(filepaths)} files to {concat_filepath}')
+            for filepath in filepaths:
+                filepath.unlink()
+            filepath = concat_filepath
+            program = program[0]
+        else:
+            artwork = self._get_artwork(program)
+            filepath = self._record_one(program)
+
+        self._set_attr(program, filepath, artwork)
+        filepath = self._mv_file(program, filepath)
+        logger.info(f'file move to {filepath}')
+        program.filepath = filepath
+        return program

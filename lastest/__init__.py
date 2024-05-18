@@ -1,4 +1,3 @@
-from math import e
 import yaml
 from pathlib import Path
 from radiko import Program

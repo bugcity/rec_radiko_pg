@@ -1,3 +1,19 @@
+- station: RADIOBERRY
+  radiko_title: U字工事のSORRY SORRY
+  artist: U字工事
+  album: U字工事のSORRY SORRY
+  title: '%Y-%m-%d'
+  filename: U字工事のSORRY SORRY_%Y%m%d
+  storage_dir: '{album}/%Y'
+
+- station: LFR
+  radiko_title: ナイツ　ザ・ラジオショー
+  artist: ナイツ
+  album: ナイツ ザ・ラジオショー
+  title: '%Y-%m-%d'
+  filename: ナイツ ザ・ラジオショー_%Y%m%d
+  storage_dir: '{artist}/%Y'
+
 - station: BAYFM78
   radiko_title: 俺のメモ帳！ on tuesday
   artist: ロバート秋山
@@ -21,6 +37,14 @@
   title: '%Y-%m-%d'
   filename: オードリーのオールナイトニッポン_%Y%m%d
   storage_dir: '{artist}/%Y'
+
+- station: LFR
+  radiko_title: サンドウィッチマン　ザ・ラジオショー サタデー
+  artist: サンドウィッチマン
+  album: サンドウィッチマン ザ・ラジオショー サタデー
+  title: '%Y-%m-%d'
+  filename: サンドウィッチマン ザ・ラジオショー サタデー_%Y%m%d
+  storage_dir: '{album}/%Y'
 
 - station: LFR
   radiko_title: あののオールナイトニッポン0(ZERO)
@@ -152,11 +176,11 @@
   storage_dir: '{album}/%Y'
 
 - station: RADIOBERRY
-  radiko_title: 有吉弘行のSUNDAY NIGHT DREAMER
-  artist: 有吉弘行
-  album: 有吉弘行のSUNDAY NIGHT DREAMER
+  radiko_title: U字工事のSORRY SORRY
+  artist: U字工事
+  album: U字工事のSORRY SORRY
   title: '%Y-%m-%d'
-  filename: 有吉弘行のSUNDAY_NIGHT_DREAMER_%Y%m%d
+  filename: U字工事のSORRY SORRY_%Y%m%d
   storage_dir: '{album}/%Y'
 
 - station: SBC
@@ -169,7 +193,7 @@
 
 - station: OBC
   radiko_title: サクラバシ919
-  radiko_dayw: 火曜日
+  radiko_dayw: 木曜日
   artist: 四千頭身 都築拓紀
   album: 四千頭身 都築拓紀のサクラバシ919
   title: '%Y-%m-%d'

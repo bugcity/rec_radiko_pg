@@ -175,14 +175,6 @@
   filename: チョコレートプラネットの東京遊泳_%Y%m%d
   storage_dir: '{album}/%Y'
 
-- station: RADIOBERRY
-  radiko_title: U字工事のSORRY SORRY
-  artist: U字工事
-  album: U字工事のSORRY SORRY
-  title: '%Y-%m-%d'
-  filename: U字工事のSORRY SORRY_%Y%m%d
-  storage_dir: '{album}/%Y'
-
 - station: SBC
   radiko_title: もう中学生のおラジオ中
   artist: もう中学生

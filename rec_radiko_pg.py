@@ -87,6 +87,7 @@ def main():
             body = ''
             email.send(msg, body)
     lastest.save()
+    logger.info('done')
 
 
 if __name__ == '__main__':

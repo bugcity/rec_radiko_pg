@@ -4,3 +4,4 @@ storage/
 last_record_at.yaml
 rec_radiko_ts.sh
 *.m4a
+.env

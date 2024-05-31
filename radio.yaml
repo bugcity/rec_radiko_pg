@@ -191,3 +191,11 @@
   title: '%Y-%m-%d'
   filename: 四千頭身 都築拓紀のサクラバシ919_%Y%m%d
   storage_dir: '{album}/%Y'
+
+- station: RADIOBERRY
+  radiko_title: 有吉弘行のSUNDAY NIGHT DREAMER
+  artist: 有吉弘行
+  album: 有吉弘行のSUNDAY NIGHT DREAMER
+  title: '%Y-%m-%d'
+  filename: 有吉弘行のSUNDAY_NIGHT_DREAMER_%Y%m%d
+  storage_dir: '{album}/%Y'

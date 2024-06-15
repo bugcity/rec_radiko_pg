@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rec-radiko-pg"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["bugcity <wakamesukusuki@gmail.com>"]
 readme = "README.md"
@@ -12,6 +12,7 @@ requests = "^2.31.0"
 mutagen = "^1.47.0"
 pydub = "^0.25.1"
 python-dotenv = "^1.0.1"
+jaconv = "^0.3.4"
 
 
 [build-system]

@@ -9,9 +9,17 @@ from mutagen.mp4 import MP4, MP4Cover
 import os
 import shutil
 from pydub import AudioSegment
+import jaconv
+import re
 
 
 logger = getLogger(__name__)
+
+
+@dataclass
+class Words:
+    words: list
+    stations: list
 
 
 @dataclass
@@ -28,7 +36,7 @@ class Program:
     artist: str = ''
     title: str = ''
     storage_dir: str = ''
-    filepath: Path = None
+    title_key: str = ''
 
 
 class Radiko:
@@ -40,7 +48,13 @@ class Radiko:
         self.storage_dir = storage_dir
 
     def _station_list(self, radio: list) -> list:
-        return list(set([pg['station'] for pg in radio]))
+        stations = set()
+        for pg in radio:
+            if 'station' in pg:
+                stations.add(pg['station'])
+            if 'stations' in pg:
+                stations.update(pg['stations'])
+        return list(stations)
 
     def _get_programs_xml(self, station: str) -> str:
         url = f'http://radiko.jp/v3/program/station/weekly/{station}.xml'
@@ -60,14 +74,24 @@ class Radiko:
             title = prog.find('title').text
             img = prog.find('img').text
             pfm = prog.find('pfm').text
+            if not pfm:
+                pfm = ''
+
+            title_key = title
+            title_key = jaconv.z2h(title_key, kana=False, ascii=True, digit=True)
+            title_key = re.sub(r' \(\d+\)$', '', title_key)
+            title_key = re.sub(r'\(\d+時台\)$', '', title_key)
+            title_key = re.sub(r'\(エンディング\)$', '', title_key)
+
             progs.append(
                 Program(
                     station=station,
-                    radiko_title=title,
+                    radiko_title=title.replace('\u3000', ' '),
                     start_time=ft,
                     end_time=to,
                     img=img,
-                    pfm=pfm,
+                    pfm=pfm.replace('\u3000', ' '),
+                    title_key=title_key,
                 )
             )
 
@@ -88,33 +112,62 @@ class Radiko:
 
     def _filter_programs(self, programs: list, radio: list) -> dict:
         weekdays = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']
+        words_found_programs = {}  # key: pg.station_index: value: title
+        title_found_programs = {}  # key: pg.station_index: value: title
         ret = {}
-        for pg in programs:
+        for index, pg in enumerate(programs):
             for cf in radio:
+                found = ''
                 start_time = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
-                if 'radiko_dayw' in cf:
-                    weekday_num = start_time.weekday()
-                    weekday = weekdays[weekday_num]
-                    same_weekday = (weekday == cf['radiko_dayw'])
-                else:
-                    same_weekday = True
 
-                station = cf['station']
-                title = cf['radiko_title']
-                if pg.station == station and pg.radiko_title.startswith(title) and same_weekday:
-                    pg.artist = self._replace_tag(pg, start_time, cf['artist'])
-                    pg.album = self._replace_tag(pg, start_time, cf['album'])
-                    pg.title = self._replace_tag(pg, start_time, cf['title'])
-                    pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
-                    pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
-                    title += ('_' + pg.start_time[:8])
-                    if title in ret:
-                        if type(ret[title]) is list:
-                            ret[title].append(pg)
-                        else:
-                            ret[title] = [ret[title], pg]
+                if 'words' in cf:
+                    for word in cf['words']:
+                        if word in pg.radiko_title or word in pg.pfm:
+                            found = 'words'
+                            pg.artist = pg.pfm
+                            pg.album = pg.title_key
+                            pg.title = pg.title_key
+                            pg.filename = self._replace_tag(pg, start_time, pg.title_key + '_%Y%m%d') + '.m4a'
+                            pg.storage_dir = pg.title_key
+                            break
+                else:
+                    if 'radiko_dayw' in cf:
+                        weekday_num = start_time.weekday()
+                        weekday = weekdays[weekday_num]
+                        same_weekday = (weekday == cf['radiko_dayw'])
                     else:
-                        ret[title] = pg
+                        same_weekday = True
+
+                    station = cf['station']
+                    if pg.station == station and pg.radiko_title.startswith(cf['radiko_title']) and same_weekday:
+                        found = 'title'
+                        pg.artist = self._replace_tag(pg, start_time, cf['artist'])
+                        pg.album = self._replace_tag(pg, start_time, cf['album'])
+                        pg.title = self._replace_tag(pg, start_time, cf['title'])
+                        pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
+                        pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
+
+                if found:
+                    title_key = pg.title_key + '_' + pg.start_time[:8]
+
+                    # 重複排除
+                    key = f'{pg.station}_{index}'
+                    if found == 'title':
+                        if key in words_found_programs:
+                            del ret[words_found_programs[key]]
+                        title_found_programs[key] = title_key
+                    elif found == 'words':
+                        if key in title_found_programs:
+                            continue
+                        words_found_programs[key] = title_key
+
+                    if title_key in ret:
+                        if type(ret[title_key]) is list:
+                            ret[title_key].append(pg)
+                        else:
+                            ret[title_key] = [ret[title_key], pg]
+                    else:
+                        ret[title_key] = pg
         return ret
 
     def get_programs(self, radio: list) -> dict:

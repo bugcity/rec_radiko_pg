@@ -83,10 +83,13 @@ def main():
         program = radiko.record(program)
         if program.filepath:
             lastest.set(program)
-            msg = f'録音完了:{program.radiko_title}'
-            body = ''
+            lastest.save()
+            msg = f'録音完了:{program.title_key}'
+            dt = program.start_time[:4] + '-' + program.start_time[4:6] + '-' + program.start_time[6:8]
+            body = f'日付: {dt}'
+            if program.artist:
+                body += f'<br>出演者: {program.artist}'
             email.send(msg, body)
-    lastest.save()
     logger.info('done')
 
 

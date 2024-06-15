@@ -122,6 +122,16 @@ files = [
 ]
 
 [[package]]
+name = "jaconv"
+version = "0.3.4"
+description = "Pure-Python Japanese character interconverter for Hiragana, Katakana, Hankaku, Zenkaku and more"
+optional = false
+python-versions = "*"
+files = [
+    {file = "jaconv-0.3.4.tar.gz", hash = "sha256:9e7c55f3f0b0e2dbad62f6c9fa0c30fc6fffdbb78297955509d90856b3a31d6d"},
+]
+
+[[package]]
 name = "mutagen"
 version = "1.47.0"
 description = "read and write audio tags for many formats"
@@ -257,4 +267,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "78418ee8d9dd7c7641cbbcf99269556e87cdd97f13405682344aca08f6a5dee5"
+content-hash = "f91b396219d17a383a8f396df3411c003ab5e8b9ac6af9910b9b2a90cdcab057"

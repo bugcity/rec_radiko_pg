@@ -86,7 +86,7 @@ class Radiko:
             progs.append(
                 Program(
                     station=station,
-                    radiko_title=title.replace('\u3000', ' '),
+                    radiko_title=title,
                     start_time=ft,
                     end_time=to,
                     img=img,
@@ -231,7 +231,10 @@ class Radiko:
         dst = self.storage_dir / program.storage_dir / program.filename
         if not os.path.exists(dst.parent):
             os.makedirs(dst.parent)
-        shutil.move(src, dst)
+
+        param = ['cp', src, dst]
+        result = subprocess.run(param, check=True)
+        os.remove(src)
         return dst
 
     def _concatenate_m4a(self, files: list, output_path: Path) -> None:

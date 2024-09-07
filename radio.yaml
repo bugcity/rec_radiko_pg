@@ -1,4 +1,6 @@
 - words:
+    - 千鳥
+    - リンダカラー
     - ぱーてぃーちゃん
     - マシンガンズ
     - ガクテンソク
@@ -21,6 +23,14 @@
   storage_dir: '{album}/%Y'
 
 - station: LFR
+  radiko_title: さまぁ～ずのさまラジ
+  artist: さまぁ～ず
+  album: さまぁ～ずのさまラジ
+  title: '%Y-%m-%d'
+  filename: さまぁ～ずのさまラジ_%Y%m%d
+  storage_dir: '{artist}/%Y'
+
+- station: LFR
   radiko_title: ナイツ　ザ・ラジオショー
   artist: ナイツ
   album: ナイツ ザ・ラジオショー
@@ -35,6 +45,14 @@
   title: '%Y-%m-%d'
   filename: 俺のメモ帳!_%Y%m%d
   storage_dir: '{album}/%Y'
+
+- station: LFR
+  radiko_title: 令和ロマンのオールナイトニッポン
+  artist: 令和ロマン
+  album: 令和ロマンのオールナイトニッポン
+  title: '%Y-%m-%d'
+  filename: 令和ロマンのオールナイトニッポン_%Y%m%d
+  storage_dir: '{artist}/%Y'
 
 - station: LFR
   radiko_title: 三四郎のオールナイトニッポン0(ZERO)

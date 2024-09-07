@@ -77,6 +77,9 @@ class Radiko:
             if not pfm:
                 pfm = ''
 
+            if not title:
+                continue
+
             title_key = title
             title_key = jaconv.z2h(title_key, kana=False, ascii=True, digit=True)
             title_key = re.sub(r' \(\d+\)$', '', title_key)
@@ -197,11 +200,15 @@ class Radiko:
             param.extend(['-m', self.radiko_email, '-p', self.radiko_pw])
 
         logger.debug(param)
-        result = subprocess.run(
-            param,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                param,
+                capture_output=True,
+                text=True,
+                timeout=45 * 60,
+            )
+        except subprocess.TimeoutExpired:
+            return None
 
         if result.returncode == 0:
             return filepath

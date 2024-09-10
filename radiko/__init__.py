@@ -7,10 +7,10 @@ from logging import getLogger
 from pathlib import Path
 from mutagen.mp4 import MP4, MP4Cover
 import os
-import shutil
 from pydub import AudioSegment
 import jaconv
 import re
+from typing import Union
 
 
 logger = getLogger(__name__)
@@ -37,6 +37,8 @@ class Program:
     title: str = ''
     storage_dir: str = ''
     title_key: str = ''
+    found_by: str = ''
+    dulation: int = 0
 
 
 class Radiko:
@@ -56,12 +58,21 @@ class Radiko:
                 stations.update(pg['stations'])
         return list(stations)
 
+    def _replace_config(self, radio: list) -> dict:
+        replace_config = {}
+        for pg in radio:
+            if 'words' in pg:
+                if 'replace' in pg:
+                    replace_config = pg['replace']
+                break
+        return replace_config
+
     def _get_programs_xml(self, station: str) -> str:
         url = f'http://radiko.jp/v3/program/station/weekly/{station}.xml'
         response = requests.get(url)
         return response.text
 
-    def _parse_programs_xml(self, xml: str) -> list:
+    def _parse_programs_xml(self, xml: str, replace_config: dict) -> list:
         progs = []
         root = ET.fromstring(xml)
         for stat in root.findall('.//station'):
@@ -80,11 +91,18 @@ class Radiko:
             if not title:
                 continue
 
+            for key, value in replace_config.items():
+                title = title.replace(key, value)
+
             title_key = title
             title_key = jaconv.z2h(title_key, kana=False, ascii=True, digit=True)
             title_key = re.sub(r' \(\d+\)$', '', title_key)
             title_key = re.sub(r'\(\d+時台\)$', '', title_key)
             title_key = re.sub(r'\(エンディング\)$', '', title_key)
+
+            ft_dt = datetime.strptime(ft, '%Y%m%d%H%M%S')
+            to_dt = datetime.strptime(to, '%Y%m%d%H%M%S')
+            dulation = (to_dt - ft_dt).seconds
 
             progs.append(
                 Program(
@@ -95,6 +113,7 @@ class Radiko:
                     img=img,
                     pfm=pfm.replace('\u3000', ' '),
                     title_key=title_key,
+                    dulation=dulation
                 )
             )
 
@@ -113,74 +132,104 @@ class Radiko:
             val = val.replace('{artist}', pg.artist)
         return val
 
-    def _filter_programs(self, programs: list, radio: list) -> dict:
+    def _recording_by_words(self, pg: Program, cf: dict) -> Program:
+        start_time = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
+        words = cf['words']
+        for word in words:
+            if word in pg.radiko_title or word in pg.pfm:
+                pg.artist = pg.pfm
+                pg.album = pg.title_key
+                pg.title = pg.title_key
+                pg.filename = self._replace_tag(pg, start_time, pg.title_key + '_%Y%m%d') + '.m4a'
+                pg.storage_dir = pg.title_key
+                pg.found_by = 'words'
+                return pg
+        return None
+
+    def _recording_by_title(self, pg: Program, cf: dict) -> Program:
+        start_time = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
         weekdays = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']
-        words_found_programs = {}  # key: pg.station_index: value: title
-        title_found_programs = {}  # key: pg.station_index: value: title
-        ret = {}
-        for index, pg in enumerate(programs):
+
+        if 'radiko_dayw' in cf:
+            weekday_num = start_time.weekday()
+            weekday = weekdays[weekday_num]
+            same_weekday = (weekday == cf['radiko_dayw'])
+        else:
+            same_weekday = True
+
+        station = cf['station']
+        if pg.station == station and pg.radiko_title.startswith(cf['radiko_title']) and same_weekday:
+            pg.artist = self._replace_tag(pg, start_time, cf['artist'])
+            pg.album = self._replace_tag(pg, start_time, cf['album'])
+            pg.title = self._replace_tag(pg, start_time, cf['title'])
+            pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
+            pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
+            pg.found_by = 'title'
+            return pg
+        return None
+
+    def _filter_programs(self, programs: list, radio: list) -> dict:
+        found_programs = {}
+        for pg in programs:
             for cf in radio:
-                found = ''
-                start_time = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
-
                 if 'words' in cf:
-                    for word in cf['words']:
-                        if word in pg.radiko_title or word in pg.pfm:
-                            found = 'words'
-                            pg.artist = pg.pfm
-                            pg.album = pg.title_key
-                            pg.title = pg.title_key
-                            pg.filename = self._replace_tag(pg, start_time, pg.title_key + '_%Y%m%d') + '.m4a'
-                            pg.storage_dir = pg.title_key
-                            break
+                    rec_pg = self._recording_by_words(pg, cf)
                 else:
-                    if 'radiko_dayw' in cf:
-                        weekday_num = start_time.weekday()
-                        weekday = weekdays[weekday_num]
-                        same_weekday = (weekday == cf['radiko_dayw'])
-                    else:
-                        same_weekday = True
+                    rec_pg = self._recording_by_title(pg, cf)
 
-                    station = cf['station']
-                    if pg.station == station and pg.radiko_title.startswith(cf['radiko_title']) and same_weekday:
-                        found = 'title'
-                        pg.artist = self._replace_tag(pg, start_time, cf['artist'])
-                        pg.album = self._replace_tag(pg, start_time, cf['album'])
-                        pg.title = self._replace_tag(pg, start_time, cf['title'])
-                        pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
-                        pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
-
-                if found:
-                    title_key = pg.title_key + '_' + pg.start_time[:8]
-
+                if rec_pg:
                     # 重複排除
-                    key = f'{pg.station}_{index}'
-                    if found == 'title':
-                        if key in words_found_programs:
-                            del ret[words_found_programs[key]]
-                        title_found_programs[key] = title_key
-                    elif found == 'words':
-                        if key in title_found_programs:
-                            continue
-                        words_found_programs[key] = title_key
-
-                    if title_key in ret:
-                        if type(ret[title_key]) is list:
-                            ret[title_key].append(pg)
-                        else:
-                            ret[title_key] = [ret[title_key], pg]
+                    key = '_'.join([rec_pg.station, rec_pg.radiko_title, rec_pg.start_time])
+                    if key in found_programs:
+                        if found_programs[key].found_by == 'words':
+                            found_programs[key] = rec_pg
                     else:
-                        ret[title_key] = pg
+                        found_programs[key] = rec_pg
+
+        ret = {}
+        for title_key in sorted(found_programs.keys()):
+            pg = found_programs[title_key]
+            logger.info(f'{pg.found_by} {title_key}')
+            title_key = pg.title_key + pg.start_time[:8]
+            if title_key in ret:
+                if type(ret[title_key]) is list:
+                    ret[title_key].append(pg)
+                else:
+                    ret[title_key] = [ret[title_key], pg]
+            else:
+                ret[title_key] = pg
         return ret
 
+    def _dulation(self, program: Union[Program, list[Program]]) -> int:
+        if type(program) is list:
+            return sum([pg.dulation for pg in program])
+        else:
+            return program.dulation
+
     def get_programs(self, radio: list) -> dict:
+        replace_config = self._replace_config(radio)
         stations = self._station_list(radio)
         programs = {}
         for station in stations:
             xml = self._get_programs_xml(station)
-            progs = self._parse_programs_xml(xml)
+            progs = self._parse_programs_xml(xml, replace_config)
             progs = self._filter_programs(progs, radio)
-            programs.update(progs)
+            # 同じ番組がある場合、長い方を採用
+            for title, program in progs.items():
+                if title in programs:
+                    program1 = programs[title]
+                    if program.found_by == 'title':
+                        programs[title] = program
+                    else:
+                        dulation1 = self._dulation(program1)
+                        dulation2 = self._dulation(program)
+                        if dulation2 > dulation1:
+                            programs[title] = program
+                else:
+                    programs[title] = program
+        logger.info(f'found {len(programs)} programs')
+        for program in programs.values():
+            logger.info(f'{program.found_by} {program.station} {program.radiko_title} {program.start_time} {program.end_time}')
         return programs
 
     def _get_artwork(self, program: Program) -> bytes:
@@ -240,7 +289,7 @@ class Radiko:
             os.makedirs(dst.parent)
 
         param = ['cp', src, dst]
-        result = subprocess.run(param, check=True)
+        subprocess.run(param, check=True)
         os.remove(src)
         return dst
 

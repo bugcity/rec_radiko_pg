@@ -229,6 +229,8 @@ class Radiko:
                     programs[title] = program
         logger.info(f'found {len(programs)} programs')
         for program in programs.values():
+            if type(program) is list:
+                program = program[0]
             logger.info(f'{program.found_by} {program.station} {program.radiko_title} {program.start_time} {program.end_time}')
         return programs
 

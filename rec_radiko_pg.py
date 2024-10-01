@@ -9,6 +9,10 @@ from gmail import Email
 from config_loader import ConfigLoader
 from lastest import Lastest
 from radiko import Radiko, Program
+import warnings
+
+
+warnings.filterwarnings("ignore", category=SyntaxWarning, module='pydub.utils')
 
 
 @dataclass

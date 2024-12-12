@@ -218,7 +218,13 @@ class Radiko:
             for title, program in progs.items():
                 if title in programs:
                     program1 = programs[title]
-                    if program.found_by == 'title':
+                    if type(program) is list:
+                        p1 = program[0]
+                    else:
+                        p1 = program
+                    found_by = p1.found_by
+
+                    if found_by == 'title':
                         programs[title] = program
                     else:
                         dulation1 = self._dulation(program1)

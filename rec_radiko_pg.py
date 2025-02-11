@@ -49,6 +49,18 @@ def load_radio() -> list:
 
 
 def can_record(now: str, record_start: str, program: Program, lastest: Lastest) -> bool:
+    """
+    録音可能かどうかを判定する
+
+    Args:
+        now (str): 現在時刻
+        record_start (str): 録音開始時刻
+        program (Program): 番組情報
+        lastest (Latest): 最新の録音情報
+
+    Returns:
+        bool: 録音可能かどうか
+    """
 
     if type(program) is list:
         pgs = program[0]

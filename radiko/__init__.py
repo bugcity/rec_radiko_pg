@@ -7,7 +7,7 @@ from logging import getLogger
 from pathlib import Path
 from mutagen.mp4 import MP4, MP4Cover
 import os
-from pydub import AudioSegment
+from .audio_concatenator import AudioConcatenator
 import jaconv
 import re
 from typing import Union
@@ -302,13 +302,10 @@ class Radiko:
         return dst
 
     def _concatenate_m4a(self, files: list, output_path: Path) -> None:
-        combined = AudioSegment.from_file(files[0], format='m4a')
-
-        for file in files[1:]:
-            next_segment = AudioSegment.from_file(file, format='m4a')
-            combined += next_segment
-
-        combined.export(output_path, format='mp4', bitrate='46k')
+        ac = AudioConcatenator(output_path)
+        for file in files:
+            ac.add_file(file)
+        ac.concatenate()
 
     def _record_one(self, program: Program) -> Path:
         logger.info(f'recording {program.radiko_title} ...')

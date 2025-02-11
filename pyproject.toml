@@ -1,13 +1,12 @@
 [project]
 name = "rec-radiko-pg"
-version = "0.2.1"
+version = "0.3.0"
 description = "Record a radio program from Radiko"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "jaconv>=0.4.0",
     "mutagen>=1.47.0",
-    "pydub>=0.25.1",
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",

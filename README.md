@@ -60,7 +60,7 @@ rec_radiko_ts.shのパスを指定します。ディレクトリを含まない�
 
 - rec_radiko_ts_sh: ../rec_radiko_ts/rec_radiko_ts.sh
 
-### radiko.yaml
+### radio.yaml
 
 radio.yamlは、録音するラジオ番組の設定。
 

@@ -81,12 +81,17 @@ radio.yamlは、録音するラジオ番組の設定。
 - title_match_mode
   `prefix`(既定), `contains`, `exact`, `regex` を指定できます。
   `radiko_title` と `radiko_aliases` の一致判定方法です。
+  - `prefix`: 番組タイトルが指定文字列で始まると一致
+  - `contains`: 番組タイトルに指定文字列が含まれると一致
+  - `exact`: 番組タイトルと指定文字列が完全一致で一致
+  - `regex`: 指定文字列を正規表現として `re.search` で一致判定
+  `regex` 以外は、全角/半角差・空白・一部記号を正規化してから比較します。
 
 - series_key
   重複録音判定に使う同一番組キー。放送局ごとに表記が揺れる番組は同じ値を指定すると、同一番組として扱えます。
 
-- series_key_strip_regex
-  `series_key` 生成時に末尾から除去する正規表現のリストです。指定しない場合は既定値（`第?\d+回$`, `\d+時台$`, `エンディング$`）が使われます。
+- key_strip_regex
+  `series_key` と `title_key` 生成時に末尾から除去する正規表現のリストです。指定しない場合は既定値（`第?\d+回$`, `\d+時台$`, `エンディング$`）が使われます。
   この設定は `radio.yaml` 内の先頭に近い共通ルール（例: `words_by_mode` ルール）に1回書けば有効です。
 
 - radiko_dayw  

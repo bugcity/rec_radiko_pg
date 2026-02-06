@@ -15,7 +15,7 @@
       - エバース
       - ももいろクローバーZ
       - チョコレートプラネット
-  series_key_strip_regex:
+  key_strip_regex:
     - 第?\d+回$
     - \d+時台$
     - エンディング$

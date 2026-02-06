@@ -45,7 +45,7 @@ class Program:
 
 class Radiko:
     MULTI_PART_MAX_GAP_SECONDS = 10 * 60
-    DEFAULT_SERIES_KEY_STRIP_REGEX = [
+    DEFAULT_KEY_STRIP_REGEX = [
         r'第?\d+回$',
         r'\d+時台$',
         r'エンディング$',
@@ -57,7 +57,7 @@ class Radiko:
         self.radiko_pw = radiko_pw
         self.tmp_dir = tmp_dir
         self.storage_dir = storage_dir
-        self.series_key_strip_regex = list(self.DEFAULT_SERIES_KEY_STRIP_REGEX)
+        self.key_strip_regex = list(self.DEFAULT_KEY_STRIP_REGEX)
 
     def _station_list(self, radio: list) -> list:
         stations = set()
@@ -80,27 +80,27 @@ class Radiko:
 
     def _title_key(self, title: str) -> str:
         key = jaconv.z2h(title, kana=False, ascii=True, digit=True)
-        for pattern in self.series_key_strip_regex:
+        for pattern in self.key_strip_regex:
             try:
                 key = re.sub(pattern, '', key)
             except re.error:
-                logger.warning(f'invalid regex in series_key_strip_regex: {pattern}')
+                logger.warning(f'invalid regex in key_strip_regex: {pattern}')
         return key
 
     def _series_key(self, title: str) -> str:
         key = self._normalize_text(title)
-        for pattern in self.series_key_strip_regex:
+        for pattern in self.key_strip_regex:
             try:
                 key = re.sub(pattern, '', key)
             except re.error:
-                logger.warning(f'invalid regex in series_key_strip_regex: {pattern}')
+                logger.warning(f'invalid regex in key_strip_regex: {pattern}')
         return key
 
-    def _series_key_strip_regex_config(self, radio: list) -> list[str]:
+    def _key_strip_regex_config(self, radio: list) -> list[str]:
         for pg in radio:
-            if 'series_key_strip_regex' in pg:
-                return pg['series_key_strip_regex']
-        return list(self.DEFAULT_SERIES_KEY_STRIP_REGEX)
+            if 'key_strip_regex' in pg:
+                return pg['key_strip_regex']
+        return list(self.DEFAULT_KEY_STRIP_REGEX)
 
     def _title_matched(self, title: str, words: list[str], mode: str) -> bool:
         if mode == 'regex':
@@ -303,7 +303,7 @@ class Radiko:
         return chunks
 
     def get_programs(self, radio: list) -> dict:
-        self.series_key_strip_regex = self._series_key_strip_regex_config(radio)
+        self.key_strip_regex = self._key_strip_regex_config(radio)
         replace_config = self._replace_config(radio)
         stations = self._station_list(radio)
         programs = {}

@@ -26,7 +26,9 @@ class Lastest:
             yaml.dump(self.last_record_at, file, allow_unicode=True)
 
     def set(self, program: Program) -> None:
-        self.last_record_at[program.title_key] = program.start_time
+        key = program.series_key if program.series_key else program.title_key
+        self.last_record_at[key] = program.start_time
 
     def get(self, program: Program) -> str:
-        return self.last_record_at.get(program.title_key, '')
+        key = program.series_key if program.series_key else program.title_key
+        return self.last_record_at.get(key, '')

@@ -75,13 +75,29 @@ radio.yamlは、録音するラジオ番組の設定。
 - radiko_title  
   radikoの番組名
 
+- radiko_aliases
+  番組名の表記ゆれ候補をリストで指定できます。
+
+- title_match_mode
+  `prefix`(既定), `contains`, `exact`, `regex` を指定できます。
+  `radiko_title` と `radiko_aliases` の一致判定方法です。
+
+- series_key
+  重複録音判定に使う同一番組キー。放送局ごとに表記が揺れる番組は同じ値を指定すると、同一番組として扱えます。
+
+- series_key_strip_regex
+  `series_key` 生成時に末尾から除去する正規表現のリストです。指定しない場合は既定値（`第?\d+回$`, `\d+時台$`, `エンディング$`）が使われます。
+  この設定は `radio.yaml` 内の先頭に近い共通ルール（例: `words_by_mode` ルール）に1回書けば有効です。
+
 - radiko_dayw  
   番組の内、録音する曜日。曜日を無視する場合、この設定自体不要
 
 ##### ワード検索
 
-- words  
-  検索ワードをリストで書きます。番組のタイトルと出演者からワードを検索し、該当すれば録音します。
+- words_by_mode
+  一致方法ごとに検索ワードを分けて書きます。番組のタイトルと出演者からワードを検索し、該当すれば録音します。
+  例:
+  `words_by_mode: { exact: ["番組名A"], contains: ["出演者名B"] }`
 
 - stations  
   検索するステーションのコードをリストで書きます。

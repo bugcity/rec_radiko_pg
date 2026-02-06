@@ -11,6 +11,7 @@ from .audio_concatenator import AudioConcatenator
 import jaconv
 import re
 from typing import Union
+import unicodedata
 
 
 logger = getLogger(__name__)
@@ -37,17 +38,27 @@ class Program:
     title: str = ''
     storage_dir: str = ''
     title_key: str = ''
+    series_key: str = ''
     found_by: str = ''
     dulation: int = 0
+    filepath: str = ''
 
 
 class Radiko:
+    MULTI_PART_MAX_GAP_SECONDS = 10 * 60
+    DEFAULT_SERIES_KEY_STRIP_REGEX = [
+        r'第?\d+回$',
+        r'\d+時台$',
+        r'エンディング$',
+    ]
+
     def __init__(self, rec_radiko_ts_sh: Path, radiko_email: str, radiko_pw: str, tmp_dir: Path, storage_dir: Path):
         self.rec_radiko_ts_sh = rec_radiko_ts_sh
         self.radiko_email = radiko_email
         self.radiko_pw = radiko_pw
         self.tmp_dir = tmp_dir
         self.storage_dir = storage_dir
+        self.series_key_strip_regex = list(self.DEFAULT_SERIES_KEY_STRIP_REGEX)
 
     def _station_list(self, radio: list) -> list:
         stations = set()
@@ -58,14 +69,65 @@ class Radiko:
                 stations.update(pg['stations'])
         return list(stations)
 
+    def _normalize_text(self, text: str) -> str:
+        if not text:
+            return ''
+        text = unicodedata.normalize('NFKC', text)
+        text = jaconv.z2h(text, kana=False, ascii=True, digit=True)
+        text = text.lower()
+        text = re.sub(r'\s+', '', text)
+        text = re.sub(r'[!！?？・･:：\-ー~〜_/／\(\)\[\]【】「」『』<>＜＞☆★♪＊*\.、。,]', '', text)
+        return text
+
+    def _series_key(self, title: str) -> str:
+        key = self._normalize_text(title)
+        for pattern in self.series_key_strip_regex:
+            try:
+                key = re.sub(pattern, '', key)
+            except re.error:
+                logger.warning(f'invalid regex in series_key_strip_regex: {pattern}')
+        return key
+
+    def _series_key_strip_regex_config(self, radio: list) -> list[str]:
+        for pg in radio:
+            if 'series_key_strip_regex' in pg:
+                return pg['series_key_strip_regex']
+        return list(self.DEFAULT_SERIES_KEY_STRIP_REGEX)
+
+    def _title_matched(self, title: str, words: list[str], mode: str) -> bool:
+        if mode == 'regex':
+            return any(re.search(word, title, re.IGNORECASE) for word in words)
+
+        normalized_title = self._normalize_text(title)
+        for word in words:
+            normalized_word = self._normalize_text(word)
+            if not normalized_word:
+                continue
+            if mode == 'exact' and normalized_title == normalized_word:
+                return True
+            if mode == 'contains' and normalized_word in normalized_title:
+                return True
+            if mode == 'prefix' and normalized_title.startswith(normalized_word):
+                return True
+        return False
+
     def _replace_config(self, radio: list) -> dict:
         replace_config = {}
         for pg in radio:
-            if 'words' in pg:
+            if 'words_by_mode' in pg:
                 if 'replace' in pg:
                     replace_config = pg['replace']
                 break
         return replace_config
+
+    def _word_match_rules(self, cf: dict) -> list[tuple[str, str]]:
+        rules = []
+        # words_by_mode: {contains: [...], exact: [...]}
+        for mode, words in cf.get('words_by_mode', {}).items():
+            for word in words:
+                rules.append((word, mode))
+
+        return rules
 
     def _get_programs_xml(self, station: str) -> str:
         url = f'http://radiko.jp/v3/program/station/weekly/{station}.xml'
@@ -113,6 +175,7 @@ class Radiko:
                     img=img,
                     pfm=pfm.replace('\u3000', ' '),
                     title_key=title_key,
+                    series_key=self._series_key(title),
                     dulation=dulation
                 )
             )
@@ -134,9 +197,9 @@ class Radiko:
 
     def _recording_by_words(self, pg: Program, cf: dict) -> Program:
         start_time = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
-        words = cf['words']
-        for word in words:
-            if word in pg.radiko_title or word in pg.pfm:
+        rules = self._word_match_rules(cf)
+        for word, mode in rules:
+            if self._title_matched(pg.radiko_title, [word], mode) or self._title_matched(pg.pfm, [word], mode):
                 pg.artist = pg.pfm
                 pg.album = pg.title_key
                 pg.title = pg.title_key
@@ -158,12 +221,15 @@ class Radiko:
             same_weekday = True
 
         station = cf['station']
-        if pg.station == station and pg.radiko_title.startswith(cf['radiko_title']) and same_weekday:
+        match_mode = cf.get('title_match_mode', 'prefix')
+        match_titles = [cf['radiko_title']] + cf.get('radiko_aliases', [])
+        if pg.station == station and self._title_matched(pg.radiko_title, match_titles, match_mode) and same_weekday:
             pg.artist = self._replace_tag(pg, start_time, cf['artist'])
             pg.album = self._replace_tag(pg, start_time, cf['album'])
             pg.title = self._replace_tag(pg, start_time, cf['title'])
             pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
             pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
+            pg.series_key = self._series_key(cf.get('series_key', cf['radiko_title']))
             pg.found_by = 'title'
             return pg
         return None
@@ -186,18 +252,21 @@ class Radiko:
                     else:
                         found_programs[key] = rec_pg
 
-        ret = {}
+        grouped = {}
         for title_key in sorted(found_programs.keys()):
             pg = found_programs[title_key]
             logger.info(f'{pg.found_by} {title_key}')
-            title_key = pg.title_key + pg.start_time[:8]
-            if title_key in ret:
-                if type(ret[title_key]) is list:
-                    ret[title_key].append(pg)
-                else:
-                    ret[title_key] = [ret[title_key], pg]
+            day_key = (pg.series_key or pg.title_key) + pg.start_time[:8]
+            grouped.setdefault(day_key, []).append(pg)
+
+        ret = {}
+        for day_key, pgs in grouped.items():
+            chunks = self._split_programs_by_gap(pgs)
+            selected = max(chunks, key=lambda chunk: self._dulation(chunk))
+            if len(selected) == 1:
+                ret[day_key] = selected[0]
             else:
-                ret[title_key] = pg
+                ret[day_key] = selected
         return ret
 
     def _dulation(self, program: Union[Program, list[Program]]) -> int:
@@ -206,7 +275,25 @@ class Radiko:
         else:
             return program.dulation
 
+    def _split_programs_by_gap(self, programs: list[Program]) -> list[list[Program]]:
+        if not programs:
+            return []
+
+        sorted_programs = sorted(programs, key=lambda pg: pg.start_time)
+        chunks = [[sorted_programs[0]]]
+        for pg in sorted_programs[1:]:
+            prev = chunks[-1][-1]
+            prev_end = datetime.strptime(prev.end_time, '%Y%m%d%H%M%S')
+            current_start = datetime.strptime(pg.start_time, '%Y%m%d%H%M%S')
+            gap = (current_start - prev_end).total_seconds()
+            if 0 <= gap <= self.MULTI_PART_MAX_GAP_SECONDS:
+                chunks[-1].append(pg)
+            else:
+                chunks.append([pg])
+        return chunks
+
     def get_programs(self, radio: list) -> dict:
+        self.series_key_strip_regex = self._series_key_strip_regex_config(radio)
         replace_config = self._replace_config(radio)
         stations = self._station_list(radio)
         programs = {}

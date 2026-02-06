@@ -7,4 +7,6 @@ rec_radiko_ts.sh
 .env
 uv.lock
 .python-version
+.DS_Store
+log/
 

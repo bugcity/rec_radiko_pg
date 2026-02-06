@@ -1,13 +1,12 @@
 import subprocess
-import os
 from pathlib import Path
 import tempfile
 
 
 class AudioConcatenator:
-    def __init__(self, output_file: Path = 'output.m4a'):
-        self.output_file = output_file
-        self.file_list = []
+    def __init__(self, output_file: str | Path = 'output.m4a'):
+        self.output_file: Path = Path(output_file)
+        self.file_list: list[Path] = []
 
     def add_file(self, file_path: Path) -> None:
         """結合するファイルを追加"""
@@ -25,7 +24,7 @@ class AudioConcatenator:
         with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.txt') as temp_file:
             for file in self.file_list:
                 temp_file.write(f"file '{file}'\n")
-            temp_file_path = temp_file.name
+            temp_file_path = Path(temp_file.name)
 
         try:
             # ffmpeg で結合
@@ -35,8 +34,8 @@ class AudioConcatenator:
             )
 
         except subprocess.CalledProcessError as e:
-            raise ValueError(f'ffmpeg でエラーが発生しました: {e}')
+            raise ValueError(f'ffmpeg でエラーが発生しました: {e}') from e
 
         finally:
             # 一時ファイルを削除
-            os.remove(temp_file_path)
+            temp_file_path.unlink()

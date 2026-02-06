@@ -19,8 +19,13 @@ class Email:
         message["Subject"] = subject
         message.attach(MIMEText(body, 'html'))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            # server.set_debuglevel(1)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
             server.login(self.gmail_sender, self.gmail_pw)
-            server.send_message(message)
+            server.sendmail(self.gmail_sender, self.gmail_receiver, message.as_string())
+            server.quit()
 
         return True

@@ -334,7 +334,7 @@ class Radiko:
         else:
             raise Exception(f'Failed to download JPEG file. Status code: {response.status_code}')
 
-    def _rec_radiko_ts_sh(self, program: Program) -> Path:
+    def _rec_radiko_ts_sh(self, program: Program) -> Path | None:
         url = f'https://radiko.jp/#!/ts/{program.station}/{program.start_time}'
         filepath = self.tmp_dir / program.filename
         param = [self.rec_radiko_ts_sh,
@@ -394,7 +394,7 @@ class Radiko:
             ac.add_file(file)
         ac.concatenate()
 
-    def _record_one(self, program: Program) -> Path:
+    def _record_one(self, program: Program) -> Path | None:
         logger.info(f'recording {program.radiko_title} ...')
 
         filepath = self._rec_radiko_ts_sh(program)

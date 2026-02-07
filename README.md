@@ -26,6 +26,21 @@
     uv run python rec_radiko_pg.py
     ```
 
+1. 今後録音される予定の番組を表示する場合は、以下を実行する。
+
+    ```bash
+    uv run python rec_radiko_pg.py --list-upcoming
+    ```
+
+    表示対象日数を変更する場合:
+
+    ```bash
+    uv run python rec_radiko_pg.py --list-upcoming --list-days 14
+    ```
+
+    連結録音になる番組は、一覧の下に連結対象の各枠が表示されます。
+    一覧タイトルと実際の保存ファイル名が異なる場合は、`-> 実際のファイル名` が表示されます。
+
 ## 設定
 
 ### config.yaml

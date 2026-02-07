@@ -3,6 +3,9 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
+import argparse
+import re
+import unicodedata
 import logging
 import logging.config
 from gmail import Email
@@ -75,7 +78,70 @@ def can_record(now: str, record_start: str, program: Program, lastest: Lastest) 
     return True
 
 
+def _program_start_end(program: Program) -> tuple[Program, Program]:
+    if type(program) is list:
+        return program[0], program[-1]
+    return program, program
+
+
+def _format_program_window(start: str, end: str) -> tuple[str, str]:
+    s = datetime.strptime(start, '%Y%m%d%H%M%S')
+    e = datetime.strptime(end, '%Y%m%d%H%M%S')
+    return s.strftime('%Y-%m-%d %H:%M'), e.strftime('%H:%M')
+
+
+def _normalize_label(text: str) -> str:
+    text = unicodedata.normalize('NFKC', text)
+    text = text.lower()
+    text = re.sub(r'\s+', '', text)
+    text = re.sub(r'[!！?？・･:：\-ー~〜_/／\(\)\[\]【】「」『』<>＜＞☆★♪＊*\.、。,]', '', text)
+    return text
+
+
+def _show_filename_hint(pg: Program) -> bool:
+    if not pg.filename:
+        return False
+    title_norm = _normalize_label(pg.radiko_title)
+    filename_norm = _normalize_label(Path(pg.filename).stem)
+    return title_norm not in filename_norm
+
+
+def show_upcoming(programs: dict, lastest: Lastest, now: datetime, days: int) -> None:
+    limit = now + timedelta(days=days)
+    items = []
+    now_str = now.strftime('%Y%m%d%H%M%S')
+    limit_str = limit.strftime('%Y%m%d%H%M%S')
+
+    for program in programs.values():
+        pgs, pge = _program_start_end(program)
+        if pgs.start_time <= now_str:
+            continue
+        if pgs.start_time > limit_str:
+            continue
+        if pgs.start_time <= lastest.get(pgs):
+            continue
+        items.append((pgs.start_time, pge.end_time, pgs, program))
+
+    items.sort(key=lambda x: x[0])
+    print(f'録音予定件数: {len(items)} (対象期間: {days}日)')
+    for start, end, pg, program in items:
+        s, e = _format_program_window(start, end)
+        print(f'{s}-{e} [{pg.station}] {pg.radiko_title}')
+        if _show_filename_hint(pg):
+            print(f'  -> 実際のファイル名: {pg.filename}')
+        if isinstance(program, list):
+            print('  連結対象:')
+            for part in program:
+                ps, pe = _format_program_window(part.start_time, part.end_time)
+                print(f'    - {ps}-{pe} [{part.station}] {part.radiko_title}')
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--list-upcoming', action='store_true', help='録音予定の番組一覧を表示して終了する')
+    parser.add_argument('--list-days', type=int, default=7, help='録音予定の表示対象日数 (既定: 7)')
+    args = parser.parse_args()
+
     n = datetime.now()
     now = n.strftime('%Y%m%d%H%M%S')
     record_start = (n - timedelta(minutes=5)).strftime('%Y%m%d%H%M%S')
@@ -83,15 +149,20 @@ def main():
 
     last_record_at_filename = script_dir / 'last_record_at.yaml'
     lastest = Lastest(last_record_at_filename)
-    email = Email(config.gmail_sender, config.gmail_pw, config.gmail_receiver)
-
     if len(config.rec_radiko_ts_sh.parts) > 1:
         rec_radiko_ts_sh = config.rec_radiko_ts_sh
     else:
         rec_radiko_ts_sh = script_dir / config.rec_radiko_ts_sh
     radiko = Radiko(rec_radiko_ts_sh, config.radiko_email, config.radiko_pw, script_dir, config.storage_dir)
+    programs = radiko.get_programs(load_radio())
 
-    for title, program in radiko.get_programs(load_radio()).items():
+    if args.list_upcoming:
+        show_upcoming(programs, lastest, n, args.list_days)
+        return
+
+    email = Email(config.gmail_sender, config.gmail_pw, config.gmail_receiver)
+
+    for title, program in programs.items():
         if not can_record(now, record_start, program, lastest):
             continue
 

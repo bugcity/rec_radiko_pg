@@ -249,10 +249,12 @@ class Radiko:
         found_programs = {}
         for pg in programs:
             for cf in radio:
-                if 'words' in cf:
+                if 'words_by_mode' in cf:
                     rec_pg = self._recording_by_words(pg, cf)
-                else:
+                elif 'station' in cf:
                     rec_pg = self._recording_by_title(pg, cf)
+                else:
+                    continue
 
                 if rec_pg:
                     # 重複排除
@@ -285,6 +287,24 @@ class Radiko:
             return sum(pg.dulation for pg in program)
         return program.dulation
 
+    def _program_start(self, program: Program | list[Program]) -> Program:
+        if isinstance(program, list):
+            return program[0]
+        return program
+
+    def _match_word_key(self, program: Program, word_rules: list[tuple[str, str]]) -> str:
+        for word, mode in word_rules:
+            if self._title_matched(program.radiko_title, [word], mode) or self._title_matched(program.pfm, [word], mode):
+                return self._normalize_text(word)
+        return ''
+
+    def _dedupe_key(self, program: Program | list[Program], word_rules: list[tuple[str, str]]) -> str:
+        # 同一開始時刻かつ同一ワード(優先)または同一正規化タイトルを重複候補とする
+        p = self._program_start(program)
+        word_key = self._match_word_key(p, word_rules)
+        normalized_title = p.series_key if p.series_key else self._series_key(p.radiko_title)
+        return f'{p.start_time}:{word_key if word_key else normalized_title}'
+
     def _split_programs_by_gap(self, programs: list[Program]) -> list[list[Program]]:
         if not programs:
             return []
@@ -306,15 +326,20 @@ class Radiko:
         self.key_strip_regex = self._key_strip_regex_config(radio)
         replace_config = self._replace_config(radio)
         stations = self._station_list(radio)
+        word_rules = []
+        for cf in radio:
+            if 'words_by_mode' in cf:
+                word_rules.extend(self._word_match_rules(cf))
         programs = {}
         for station in stations:
             xml = self._get_programs_xml(station)
             progs = self._parse_programs_xml(xml, replace_config)
             progs = self._filter_programs(progs, radio)
             # 同じ番組がある場合、長い方を採用
-            for title, program in progs.items():
-                if title in programs:
-                    program1 = programs[title]
+            for _, program in progs.items():
+                dedupe_key = self._dedupe_key(program, word_rules)
+                if dedupe_key in programs:
+                    program1 = programs[dedupe_key]
                     if type(program) is list:
                         p1 = program[0]
                     else:
@@ -322,14 +347,14 @@ class Radiko:
                     found_by = p1.found_by
 
                     if found_by == 'title':
-                        programs[title] = program
+                        programs[dedupe_key] = program
                     else:
                         dulation1 = self._dulation(program1)
                         dulation2 = self._dulation(program)
                         if dulation2 > dulation1:
-                            programs[title] = program
+                            programs[dedupe_key] = program
                 else:
-                    programs[title] = program
+                    programs[dedupe_key] = program
         logger.info(f'found {len(programs)} programs')
         for program in programs.values():
             if type(program) is list:

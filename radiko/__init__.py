@@ -1,12 +1,12 @@
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import shutil
 import subprocess
 from logging import getLogger
 from pathlib import Path
 from mutagen.mp4 import MP4, MP4Cover
-import os
 from .audio_concatenator import AudioConcatenator
 import jaconv
 import re
@@ -14,6 +14,17 @@ import unicodedata
 
 
 logger = getLogger(__name__)
+
+
+def normalize_text(text: str) -> str:
+    if not text:
+        return ''
+    text = unicodedata.normalize('NFKC', text)
+    text = jaconv.z2h(text, kana=False, ascii=True, digit=True)
+    text = text.lower()
+    text = re.sub(r'\s+', '', text)
+    text = re.sub(r'[!！?？・･:：\-ー~〜_/／\(\)\[\]【】「」『』<>＜＞☆★♪＊*\.、。,]', '', text)
+    return text
 
 
 @dataclass
@@ -39,7 +50,7 @@ class Program:
     title_key: str = ''
     series_key: str = ''
     found_by: str = ''
-    dulation: int = 0
+    duration: int = 0
     filepath: str = ''
 
 
@@ -69,14 +80,7 @@ class Radiko:
         return list(stations)
 
     def _normalize_text(self, text: str) -> str:
-        if not text:
-            return ''
-        text = unicodedata.normalize('NFKC', text)
-        text = jaconv.z2h(text, kana=False, ascii=True, digit=True)
-        text = text.lower()
-        text = re.sub(r'\s+', '', text)
-        text = re.sub(r'[!！?？・･:：\-ー~〜_/／\(\)\[\]【】「」『』<>＜＞☆★♪＊*\.、。,]', '', text)
-        return text
+        return normalize_text(text)
 
     def _title_key(self, title: str) -> str:
         key = jaconv.z2h(title, kana=False, ascii=True, digit=True)
@@ -104,7 +108,13 @@ class Radiko:
 
     def _title_matched(self, title: str, words: list[str], mode: str) -> bool:
         if mode == 'regex':
-            return any(re.search(word, title, re.IGNORECASE) for word in words)
+            for word in words:
+                try:
+                    if re.search(word, title, re.IGNORECASE):
+                        return True
+                except re.error:
+                    logger.warning(f'invalid regex in words: {word}')
+            return False
 
         normalized_title = self._normalize_text(title)
         for word in words:
@@ -175,7 +185,7 @@ class Radiko:
 
             ft_dt = datetime.strptime(ft, '%Y%m%d%H%M%S')
             to_dt = datetime.strptime(to, '%Y%m%d%H%M%S')
-            dulation = (to_dt - ft_dt).seconds
+            duration = (to_dt - ft_dt).seconds
 
             progs.append(
                 Program(
@@ -187,7 +197,7 @@ class Radiko:
                     pfm=pfm.replace('\u3000', ' '),
                     title_key=title_key,
                     series_key=self._series_key(title),
-                    dulation=dulation
+                    duration=duration
                 )
             )
 
@@ -211,13 +221,16 @@ class Radiko:
         rules = self._word_match_rules(cf)
         for word, mode in rules:
             if self._title_matched(pg.radiko_title, [word], mode) or self._title_matched(pg.pfm, [word], mode):
-                pg.artist = pg.pfm
-                pg.album = pg.title_key
-                pg.title = pg.title_key
-                pg.filename = self._replace_tag(pg, start_time, pg.title_key + '_%Y%m%d') + '.m4a'
-                pg.storage_dir = pg.title_key
-                pg.found_by = 'words'
-                return pg
+                base = replace(pg,
+                    artist=pg.pfm,
+                    album=pg.title_key,
+                    title=pg.title_key,
+                    storage_dir=pg.title_key,
+                    found_by='words',
+                )
+                return replace(base,
+                    filename=self._replace_tag(base, start_time, base.title_key + '_%Y%m%d') + '.m4a',
+                )
         return None
 
     def _recording_by_title(self, pg: Program, cf: dict) -> Program | None:
@@ -235,14 +248,19 @@ class Radiko:
         match_mode = cf.get('title_match_mode', 'prefix')
         match_titles = [cf['radiko_title']] + cf.get('radiko_aliases', [])
         if pg.station == station and self._title_matched(pg.radiko_title, match_titles, match_mode) and same_weekday:
-            pg.artist = self._replace_tag(pg, start_time, cf['artist'])
-            pg.album = self._replace_tag(pg, start_time, cf['album'])
-            pg.title = self._replace_tag(pg, start_time, cf['title'])
-            pg.filename = self._replace_tag(pg, start_time, cf['filename']) + '.m4a'
-            pg.storage_dir = self._replace_tag(pg, start_time, cf['storage_dir'])
-            pg.series_key = self._series_key(cf.get('series_key', cf['radiko_title']))
-            pg.found_by = 'title'
-            return pg
+            # artist/album を先に確定させる（storage_dir 等で {artist}/{album} を参照するため）
+            base = replace(pg,
+                artist=self._replace_tag(pg, start_time, cf['artist']),
+                album=self._replace_tag(pg, start_time, cf['album']),
+            )
+            matched = replace(base,
+                title=self._replace_tag(base, start_time, cf['title']),
+                filename=self._replace_tag(base, start_time, cf['filename']) + '.m4a',
+                storage_dir=self._replace_tag(base, start_time, cf['storage_dir']),
+                series_key=self._series_key(cf.get('series_key', cf['radiko_title'])),
+                found_by='title',
+            )
+            return matched
         return None
 
     def _filter_programs(self, programs: list, radio: list) -> dict:
@@ -275,17 +293,17 @@ class Radiko:
         ret = {}
         for day_key, pgs in grouped.items():
             chunks = self._split_programs_by_gap(pgs)
-            selected = max(chunks, key=lambda chunk: self._dulation(chunk))
+            selected = max(chunks, key=lambda chunk: self._duration(chunk))
             if len(selected) == 1:
                 ret[day_key] = selected[0]
             else:
                 ret[day_key] = selected
         return ret
 
-    def _dulation(self, program: Program | list[Program]) -> int:
+    def _duration(self, program: Program | list[Program]) -> int:
         if isinstance(program, list):
-            return sum(pg.dulation for pg in program)
-        return program.dulation
+            return sum(pg.duration for pg in program)
+        return program.duration
 
     def _program_start(self, program: Program | list[Program]) -> Program:
         if isinstance(program, list):
@@ -299,11 +317,12 @@ class Radiko:
         return ''
 
     def _dedupe_key(self, program: Program | list[Program], word_rules: list[tuple[str, str]]) -> str:
-        # 同一開始時刻かつ同一ワード(優先)または同一正規化タイトルを重複候補とする
+        # 同日かつ同一ワード(優先)または同一正規化タイトルを重複候補とする（異なる局・時間帯も含む）
+        # series_keyはconfig定義値の可能性があるため、実際の放送タイトルで正規化する（安全側: タイトルが異なれば別扱い）
         p = self._program_start(program)
         word_key = self._match_word_key(p, word_rules)
-        normalized_title = p.series_key if p.series_key else self._series_key(p.radiko_title)
-        return f'{p.start_time}:{word_key if word_key else normalized_title}'
+        normalized_title = self._series_key(p.radiko_title)
+        return f'{p.start_time[:8]}:{word_key if word_key else normalized_title}'
 
     def _split_programs_by_gap(self, programs: list[Program]) -> list[list[Program]]:
         if not programs:
@@ -335,29 +354,25 @@ class Radiko:
             xml = self._get_programs_xml(station)
             progs = self._parse_programs_xml(xml, replace_config)
             progs = self._filter_programs(progs, radio)
-            # 同じ番組がある場合、長い方を採用
+            # 同日同番組が複数局にある場合、放送時間が長い方を採用（同じなら指定番組マッチを優先）
             for _, program in progs.items():
                 dedupe_key = self._dedupe_key(program, word_rules)
                 if dedupe_key in programs:
                     program1 = programs[dedupe_key]
-                    if type(program) is list:
-                        p1 = program[0]
-                    else:
-                        p1 = program
-                    found_by = p1.found_by
-
-                    if found_by == 'title':
+                    duration1 = self._duration(program1)
+                    duration2 = self._duration(program)
+                    if duration2 > duration1:
                         programs[dedupe_key] = program
-                    else:
-                        dulation1 = self._dulation(program1)
-                        dulation2 = self._dulation(program)
-                        if dulation2 > dulation1:
+                    elif duration2 == duration1:
+                        existing_found_by = self._program_start(program1).found_by
+                        new_found_by = self._program_start(program).found_by
+                        if existing_found_by == 'words' and new_found_by == 'title':
                             programs[dedupe_key] = program
                 else:
                     programs[dedupe_key] = program
         logger.info(f'found {len(programs)} programs')
         for program in programs.values():
-            if type(program) is list:
+            if isinstance(program, list):
                 program = program[0]
             logger.info(f'{program.found_by} {program.station} {program.radiko_title} {program.start_time} {program.end_time}')
         return programs
@@ -420,12 +435,9 @@ class Radiko:
 
     def _mv_file(self, program: Program, src: Path) -> Path:
         dst = self.storage_dir / program.storage_dir / program.filename
-        if not os.path.exists(dst.parent):
-            os.makedirs(dst.parent)
-
-        param = ['cp', src, dst]
-        subprocess.run(param, check=True)
-        os.remove(src)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        src.unlink()
         return dst
 
     def _concatenate_m4a(self, files: list[Path], output_path: Path) -> None:

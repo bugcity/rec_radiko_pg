@@ -5,7 +5,8 @@
 
 ## 必要なもの
 
-[rec_radiko_ts](https://github.com/uru2/rec_radiko_ts)
+- [rec_radiko_ts](https://github.com/uru2/rec_radiko_ts)
+- ffmpeg
 
 
 ## 使用方法
@@ -41,12 +42,19 @@
     連結録音になる番組は、一覧の下に連結対象の各枠が表示されます。
     一覧タイトルと実際の保存ファイル名が異なる場合は、`-> 実際のファイル名` が表示されます。
 
+1. 過去N時間以内に開始した番組のみを録音対象にする場合は `--since-hours` を指定する。
+
+    ```bash
+    uv run python rec_radiko_pg.py --since-hours 24
+    ```
+
 ## 設定
 
 ### config.yaml
 
 config.yamlはrec_radiko_pgの設定。
 このファイルに記載した内容は同名の環境変数が存在するとき、環境変数が優先される。
+プロジェクトルートに `.env` ファイルを置くことで環境変数を設定できる（`.gitignore` 済み）。
 
 #### raikoの認証情報
 
@@ -128,7 +136,10 @@ radio.yamlは、録音するラジオ番組の設定。
 #### 録音したファイルのタグの設定
 
 各設定には、datetime.strftimeの書式が指定でき、録音開始時間を埋め込める。
-また、{artist}のようにして他の値を埋め込めるが、評価順はartist, album, titleの順で固定。
+また、{artist}のようにして他の値を埋め込める。評価は2段階で行われる。
+- 第1段階: artist, album を評価（{pfm} のみ参照可）
+- 第2段階: title, filename, storage_dir を評価（{artist}, {album} を参照可）
+
 {pfm}でradikoから得られる出演者の値を参照できるが、得られないことがあり、その際は''になる。アートワークはradikoから録音都度取得して設定される。
 
 - artist  

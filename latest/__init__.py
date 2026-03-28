@@ -4,7 +4,7 @@ from radiko import Program
 import jaconv
 
 
-class Lastest:
+class Latest:
     def __init__(self, last_record_at_filename: Path):
         self.last_record_at_filename = last_record_at_filename
         self.last_record_at = {}

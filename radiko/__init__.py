@@ -474,7 +474,7 @@ class Radiko:
             for index, pg in enumerate(program):
                 part_filepath = self._record_one(pg)
                 if part_filepath is None:
-                    raise RuntimeError(f'failed to record {pg.radiko_title}')
+                    raise RuntimeError(f'{pg.radiko_title}: 録音でエラー')
                 if concat_filepath is None:
                     concat_filepath = part_filepath
                 new_filepath = part_filepath.with_suffix('.' + str(index) + '.m4a')
@@ -487,7 +487,10 @@ class Radiko:
                 raise RuntimeError('failed to initialize concat filepath')
 
             logger.info(f'concatenating {len(filepaths)} files ...')
-            self._concatenate_m4a(filepaths, concat_filepath)
+            try:
+                self._concatenate_m4a(filepaths, concat_filepath)
+            except Exception as e:
+                raise RuntimeError(f'{target_program.radiko_title}: 結合でエラー') from e
             logger.info(f'concatenated {len(filepaths)} files to {concat_filepath}')
             for part_filepath in filepaths:
                 part_filepath.unlink()
@@ -497,11 +500,17 @@ class Radiko:
             artwork = self._get_artwork(target_program)
             one_filepath = self._record_one(target_program)
             if one_filepath is None:
-                raise RuntimeError(f'failed to record {target_program.radiko_title}')
+                raise RuntimeError(f'{target_program.radiko_title}: 録音でエラー')
             recorded_filepath = one_filepath
 
-        self._set_attr(target_program, recorded_filepath, artwork)
-        moved_filepath = self._mv_file(target_program, recorded_filepath)
+        try:
+            self._set_attr(target_program, recorded_filepath, artwork)
+        except Exception as e:
+            raise RuntimeError(f'{target_program.radiko_title}: タグ設定でエラー') from e
+        try:
+            moved_filepath = self._mv_file(target_program, recorded_filepath)
+        except Exception as e:
+            raise RuntimeError(f'{target_program.radiko_title}: NAS移動でエラー') from e
         logger.info(f'file move to {moved_filepath}')
         target_program.filepath = str(moved_filepath)
         return target_program

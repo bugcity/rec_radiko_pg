@@ -137,49 +137,56 @@ def main():
     since = (n - timedelta(hours=args.since_hours)).strftime('%Y%m%d%H%M%S') if args.since_hours else None
     logger.info(f'now: {now}')
 
-    last_record_at_filename = script_dir / 'last_record_at.yaml'
-    latest = Latest(last_record_at_filename)
-    if len(config.rec_radiko_ts_sh.parts) > 1:
-        rec_radiko_ts_sh = config.rec_radiko_ts_sh
-    else:
-        rec_radiko_ts_sh = script_dir / config.rec_radiko_ts_sh
-    radiko = Radiko(rec_radiko_ts_sh, config.radiko_email, config.radiko_pw, script_dir, config.storage_dir)
-    programs = radiko.get_programs(load_radio())
-
-    if args.list_upcoming:
-        show_upcoming(programs, latest, n, args.list_days)
-        return
-
     email = Email(config.gmail_sender, config.gmail_pw, config.gmail_receiver)
+    errors: list[str] = []
 
-    for title, program in programs.items():
-        if not can_record(now, record_start, program, latest):
-            continue
-        if since:
-            pgs = program[0] if isinstance(program, list) else program
-            if pgs.start_time < since:
+    try:
+        last_record_at_filename = script_dir / 'last_record_at.yaml'
+        latest = Latest(last_record_at_filename)
+        if len(config.rec_radiko_ts_sh.parts) > 1:
+            rec_radiko_ts_sh = config.rec_radiko_ts_sh
+        else:
+            rec_radiko_ts_sh = script_dir / config.rec_radiko_ts_sh
+        radiko = Radiko(rec_radiko_ts_sh, config.radiko_email, config.radiko_pw, script_dir, config.storage_dir)
+        programs = radiko.get_programs(load_radio())
+
+        if args.list_upcoming:
+            show_upcoming(programs, latest, n, args.list_days)
+            return
+
+        for title, program in programs.items():
+            if not can_record(now, record_start, program, latest):
                 continue
+            if since:
+                pgs = program[0] if isinstance(program, list) else program
+                if pgs.start_time < since:
+                    continue
 
-        logger.debug(f'program: {title}')
-        try:
-            program = radiko.record(program)
-        except Exception as e:
-            logger.error(f'failed to record {title}: {e}')
-            continue
-        if program.filepath:
-            latest.set(program)
-            latest.save()
-            msg = f'録音完了:{program.title_key}'
-            dt = program.start_time[:4] + '-' + program.start_time[4:6] + '-' + program.start_time[6:8]
-            body = f'日付: {dt}'
-            if program.artist:
-                body += f'<br>出演者: {program.artist}'
-            email.send(msg, body)
-    logger.info('done')
+            logger.debug(f'program: {title}')
+            try:
+                program = radiko.record(program)
+            except Exception as e:
+                logger.error(f'failed to record {title}: {e}')
+                errors.append(str(e))
+                continue
+            if program.filepath:
+                latest.set(program)
+                latest.save()
+                msg = f'録音完了:{program.title_key}'
+                dt = program.start_time[:4] + '-' + program.start_time[4:6] + '-' + program.start_time[6:8]
+                body = f'日付: {dt}'
+                if program.artist:
+                    body += f'<br>出演者: {program.artist}'
+                email.send(msg, body)
+    except Exception as e:
+        logger.exception(e)
+        errors.append(str(e))
+    finally:
+        if errors:
+            body = '<br>'.join(errors)
+            email.send('録音エラー', body)
+        logger.info('done')
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as e:
-        logger.exception(e)
+    main()

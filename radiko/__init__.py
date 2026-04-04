@@ -436,7 +436,7 @@ class Radiko:
     def _mv_file(self, program: Program, src: Path) -> Path:
         dst = self.storage_dir / program.storage_dir / program.filename
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        subprocess.run(['cp', str(src), str(dst)], check=True)
         src.unlink()
         return dst
 

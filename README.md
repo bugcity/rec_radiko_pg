@@ -17,6 +17,14 @@
     uv sync
     ```
 
+1. サンプルの設定ファイルをコピーする（コピー先の3ファイルは `.gitignore` 済み）。
+
+    ```bash
+    cp config.sample.yaml config.yaml
+    cp radio.sample.yaml radio.yaml
+    cp logger.sample.yaml logger.yaml
+    ```
+
 1. `config.yaml` ファイルを編集して、録音ファイルの保存先などを指定する。
 
 1. 録音したいラジオ番組の情報を設定する。`radio.yaml` ファイルを編集して、番組のタイトルや放送局の情報を指定する。

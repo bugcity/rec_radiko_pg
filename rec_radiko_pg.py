@@ -178,14 +178,21 @@ def main():
                 body = f'日付: {dt}'
                 if program.artist:
                     body += f'<br>出演者: {program.artist}'
-                email.send(msg, body)
+                try:
+                    email.send(msg, body)
+                except Exception as e:
+                    # 通知失敗で残りの録音を止めない
+                    logger.error(f'failed to send notification for {title}: {e}')
     except Exception as e:
         logger.exception(e)
         errors.append(str(e))
     finally:
         if errors:
             body = '<br>'.join(errors)
-            email.send('録音エラー', body)
+            try:
+                email.send('録音エラー', body)
+            except Exception as e:
+                logger.error(f'failed to send error notification: {e}')
         logger.info('done')
 
 

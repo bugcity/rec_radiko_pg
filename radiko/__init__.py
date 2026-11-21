@@ -56,6 +56,7 @@ class Program:
 
 class Radiko:
     MULTI_PART_MAX_GAP_SECONDS = 10 * 60
+    HTTP_TIMEOUT_SECONDS = 30
     DEFAULT_KEY_STRIP_REGEX = [
         r'第?\d+回$',
         r'\d+時台$',
@@ -69,6 +70,7 @@ class Radiko:
         self.tmp_dir = tmp_dir
         self.storage_dir = storage_dir
         self.key_strip_regex = list(self.DEFAULT_KEY_STRIP_REGEX)
+        self.fetch_errors: list[str] = []
 
     def _station_list(self, radio: list) -> list:
         stations = set()
@@ -149,7 +151,8 @@ class Radiko:
 
     def _get_programs_xml(self, station: str) -> str:
         url = f'http://radiko.jp/v3/program/station/weekly/{station}.xml'
-        response = requests.get(url)
+        response = requests.get(url, timeout=self.HTTP_TIMEOUT_SECONDS)
+        response.raise_for_status()
         return response.text
 
     def _child_text(self, elem: ET.Element, tag: str) -> str:
@@ -387,12 +390,20 @@ class Radiko:
             logger.info(f'{program.found_by} {program.station} {program.radiko_title} {program.start_time} {program.end_time}')
         return programs
 
-    def _get_artwork(self, program: Program) -> bytes:
-        response = requests.get(program.img)
-        if response.status_code == 200:
-            return response.content
-        else:
-            raise Exception(f'Failed to download JPEG file. Status code: {response.status_code}')
+    def _get_artwork(self, program: Program) -> bytes | None:
+        # アートワークは付加情報なので、取得できなくても録音は続行する
+        if not program.img:
+            logger.warning(f'{program.radiko_title}: no artwork url')
+            return None
+        try:
+            response = requests.get(program.img, timeout=self.HTTP_TIMEOUT_SECONDS)
+        except requests.exceptions.RequestException as e:
+            logger.warning(f'{program.radiko_title}: failed to download artwork: {e}')
+            return None
+        if response.status_code != 200:
+            logger.warning(f'{program.radiko_title}: failed to download artwork. Status code: {response.status_code}')
+            return None
+        return response.content
 
     def _rec_radiko_ts_sh(self, program: Program) -> Path | None:
         url = f'https://radiko.jp/#!/ts/{program.station}/{program.start_time}'
@@ -403,7 +414,7 @@ class Radiko:
         if self.radiko_email and self.radiko_pw:
             param.extend(['-m', self.radiko_email, '-p', self.radiko_pw])
 
-        logger.debug(param)
+        logger.debug(self._mask_credentials(param))
         try:
             result = subprocess.run(
                 param,
@@ -419,7 +430,14 @@ class Radiko:
         else:
             return None
 
-    def _set_attr(self, program: Program, filepath: Path, artwork: bytes) -> None:
+    def _mask_credentials(self, param: list) -> list:
+        masked = list(param)
+        for i, value in enumerate(masked[:-1]):
+            if value in ('-m', '-p'):
+                masked[i + 1] = '***'
+        return masked
+
+    def _set_attr(self, program: Program, filepath: Path, artwork: bytes | None) -> None:
 
         mp4 = MP4(filepath)
         tags = mp4.tags
@@ -431,8 +449,9 @@ class Radiko:
         prm = {
             '\xa9alb': program.album,
             '\xa9nam': program.title,
-            '\xa9ART': program.artist,
-            'covr': [MP4Cover(artwork)]}
+            '\xa9ART': program.artist}
+        if artwork:
+            prm['covr'] = [MP4Cover(artwork)]
 
         changed = False
         for name, value in prm.items():
@@ -470,7 +489,7 @@ class Radiko:
     def record(self, program: Program | list[Program]) -> Program:
         target_program: Program
         recorded_filepath: Path
-        artwork: bytes
+        artwork: bytes | None
 
         if isinstance(program, list):
             if not program:

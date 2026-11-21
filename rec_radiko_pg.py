@@ -149,6 +149,7 @@ def main():
             rec_radiko_ts_sh = script_dir / config.rec_radiko_ts_sh
         radiko = Radiko(rec_radiko_ts_sh, config.radiko_email, config.radiko_pw, script_dir, config.storage_dir)
         programs = radiko.get_programs(load_radio())
+        errors.extend(radiko.fetch_errors)
 
         if args.list_upcoming:
             show_upcoming(programs, latest, n, args.list_days)

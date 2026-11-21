@@ -1,4 +1,5 @@
 import unittest
+import requests
 from pathlib import Path
 from unittest.mock import patch
 from radiko import Radiko, Program
@@ -256,6 +257,57 @@ class TestGetProgramsDedup(unittest.TestCase):
                 programs[key] = pg
 
         self.assertEqual(list(programs.values())[0].found_by, 'title')
+
+
+class TestGetProgramsErrorHandling(unittest.TestCase):
+    def setUp(self):
+        self.r = make_radiko()
+        self.radio = [{'words_by_mode': {'contains': ['テスト']}, 'stations': ['LFR', 'TBS']}]
+
+    def _station_xml(self, station: str) -> str:
+        return f'''<radiko>
+  <stations>
+    <station id="{station}">
+      <progs>
+        <prog ft="20260328100000" to="20260328120000">
+          <title>テスト番組</title>
+          <img></img>
+          <pfm>テスト出演者</pfm>
+        </prog>
+      </progs>
+    </station>
+  </stations>
+</radiko>'''
+
+    def test_skips_station_with_xml_parse_error(self):
+        def fake_get_xml(station):
+            if station == 'LFR':
+                return '<radiko><stations>broken'
+            return self._station_xml(station)
+
+        with patch.object(self.r, '_get_programs_xml', side_effect=fake_get_xml):
+            programs = self.r.get_programs(self.radio)
+
+        self.assertEqual(len(self.r.fetch_errors), 1)
+        self.assertIn('LFR', self.r.fetch_errors[0])
+        self.assertIn('XMLパースエラー', self.r.fetch_errors[0])
+        self.assertEqual(len(programs), 1)
+        self.assertEqual(self.r._program_start(list(programs.values())[0]).station, 'TBS')
+
+    def test_skips_station_with_request_exception(self):
+        def fake_get_xml(station):
+            if station == 'LFR':
+                raise requests.exceptions.ContentDecodingError('decode failed')
+            return self._station_xml(station)
+
+        with patch.object(self.r, '_get_programs_xml', side_effect=fake_get_xml):
+            programs = self.r.get_programs(self.radio)
+
+        self.assertEqual(len(self.r.fetch_errors), 1)
+        self.assertIn('LFR', self.r.fetch_errors[0])
+        self.assertIn('番組表取得エラー', self.r.fetch_errors[0])
+        self.assertEqual(len(programs), 1)
+        self.assertEqual(self.r._program_start(list(programs.values())[0]).station, 'TBS')
 
 
 if __name__ == '__main__':

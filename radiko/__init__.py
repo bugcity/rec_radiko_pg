@@ -343,6 +343,7 @@ class Radiko:
 
     def get_programs(self, radio: list) -> dict:
         self.key_strip_regex = self._key_strip_regex_config(radio)
+        self.fetch_errors: list[str] = []
         replace_config = self._replace_config(radio)
         stations = self._station_list(radio)
         word_rules = []
@@ -351,8 +352,17 @@ class Radiko:
                 word_rules.extend(self._word_match_rules(cf))
         programs = {}
         for station in stations:
-            xml = self._get_programs_xml(station)
-            progs = self._parse_programs_xml(xml, replace_config)
+            try:
+                xml = self._get_programs_xml(station)
+                progs = self._parse_programs_xml(xml, replace_config)
+            except requests.exceptions.RequestException as e:
+                logger.error(f'[{station}] 番組表取得エラー: {e}')
+                self.fetch_errors.append(f'[{station}] 番組表取得エラー: {e}')
+                continue
+            except ET.ParseError as e:
+                logger.error(f'[{station}] XMLパースエラー: {e}')
+                self.fetch_errors.append(f'[{station}] XMLパースエラー: {e}')
+                continue
             progs = self._filter_programs(progs, radio)
             # 同日同番組が複数局にある場合、放送時間が長い方を採用（同じなら指定番組マッチを優先）
             for _, program in progs.items():

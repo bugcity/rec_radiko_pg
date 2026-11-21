@@ -310,5 +310,62 @@ class TestGetProgramsErrorHandling(unittest.TestCase):
         self.assertEqual(self.r._program_start(list(programs.values())[0]).station, 'TBS')
 
 
+class TestNetworkRobustness(unittest.TestCase):
+    def setUp(self):
+        self.r = make_radiko()
+
+    def test_programs_xml_uses_timeout_and_raises_on_http_error(self):
+        response = requests.Response()
+        response.status_code = 503
+        with patch('radiko.requests.get', return_value=response) as get:
+            with self.assertRaises(requests.exceptions.HTTPError):
+                self.r._get_programs_xml('LFR')
+        self.assertIn('timeout', get.call_args.kwargs)
+
+    def test_http_error_is_reported_as_fetch_error(self):
+        radio = [{'words_by_mode': {'contains': ['テスト']}, 'stations': ['LFR']}]
+        response = requests.Response()
+        response.status_code = 503
+        with patch('radiko.requests.get', return_value=response):
+            programs = self.r.get_programs(radio)
+        self.assertEqual(programs, {})
+        self.assertIn('番組表取得エラー', self.r.fetch_errors[0])
+
+    def test_artwork_empty_url_returns_none(self):
+        with patch('radiko.requests.get') as get:
+            self.assertIsNone(self.r._get_artwork(make_program(img='')))
+        get.assert_not_called()
+
+    def test_artwork_request_exception_returns_none(self):
+        with patch('radiko.requests.get', side_effect=requests.exceptions.Timeout('t')):
+            self.assertIsNone(self.r._get_artwork(make_program(img='http://example.invalid/a.jpg')))
+
+    def test_artwork_non_200_returns_none(self):
+        response = requests.Response()
+        response.status_code = 404
+        with patch('radiko.requests.get', return_value=response):
+            self.assertIsNone(self.r._get_artwork(make_program(img='http://example.invalid/a.jpg')))
+
+    def test_record_continues_without_artwork(self):
+        pg = make_program(img='', filename='a.m4a')
+        with patch.object(self.r, '_record_one', return_value=Path('/tmp/a.m4a')) as rec, \
+                patch.object(self.r, '_set_attr') as set_attr, \
+                patch.object(self.r, '_mv_file', return_value=Path('/tmp/storage/a.m4a')):
+            result = self.r.record(pg)
+        rec.assert_called_once()
+        self.assertIsNone(set_attr.call_args.args[2])
+        self.assertEqual(result.filepath, '/tmp/storage/a.m4a')
+
+    def test_mask_credentials(self):
+        param = ['rec.sh', '-u', 'url', '-o', 'out', '-m', 'user@example.com', '-p', 'secret']
+        masked = self.r._mask_credentials(param)
+        self.assertNotIn('user@example.com', masked)
+        self.assertNotIn('secret', masked)
+        self.assertEqual(param[-1], 'secret')
+
+    def test_fetch_errors_initialized(self):
+        self.assertEqual(self.r.fetch_errors, [])
+
+
 if __name__ == '__main__':
     unittest.main()
